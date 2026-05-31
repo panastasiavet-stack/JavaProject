@@ -1,0 +1,280 @@
+@host = http://localhost:8080
+
+### =========================================================
+### 1. Регистрация и вход администратора
+### =========================================================
+
+### Назначение: регистрация первого администратора системы.
+# @name registerAdmin
+POST {{host}}/auth/register
+Content-Type: application/json
+
+{
+  "login": "admin1",
+  "password": "12345678",
+  "role": "ADMIN",
+  "email": "admin@example.com",
+  "phone": "+79990000001",
+  "telegramChatId": "YOUR_ADMIN_TELEGRAM_CHAT_ID"
+}
+
+### Назначение: проверка запрета на регистрацию второго администратора.
+# @name registerSecondAdminShouldFail
+POST {{host}}/auth/register
+Content-Type: application/json
+
+{
+  "login": "admin2",
+  "password": "12345678",
+  "role": "ADMIN",
+  "email": "admin2@example.com",
+  "phone": "+79990000003",
+  "telegramChatId": "YOUR_ADMIN2_TELEGRAM_CHAT_ID"
+}
+
+### Назначение: вход администратора и получение JWT-токена для выполнения admin API.
+# @name loginAdmin
+POST {{host}}/auth/login
+Content-Type: application/json
+
+{
+  "login": "admin1",
+  "password": "12345678"
+}
+
+> {%
+    client.global.set("adminToken", response.body.token);
+    client.log("adminToken = " + client.global.get("adminToken"));
+%}
+
+### =========================================================
+### 2. Регистрация и вход обычного пользователя, бот
+### =========================================================
+
+### Назначение: регистрация обычного пользователя системы.
+# @name registerUser
+POST {{host}}/auth/register
+Content-Type: application/json
+
+{
+  "login": "user1",
+  "password": "12345678",
+  "role": "USER",
+  "email": "user1@example.com",
+  "phone": "+79990000002",
+  "telegramChatId": "YOUR_USER_TELEGRAM_CHAT_ID"
+}
+
+### Назначение: вход обычного пользователя и получение JWT-токена для пользовательских операций.
+# @name loginUser
+POST {{host}}/auth/login
+Content-Type: application/json
+
+{
+  "login": "user1",
+  "password": "12345678"
+}
+
+> {%
+    client.global.set("userToken", response.body.token);
+    client.log("userToken = " + client.global.get("userToken"));
+%}
+
+### =========================================================
+### 3. Админские операции
+### =========================================================
+
+### Назначение: получение текущей конфигурации OTP-кодов администратором.
+# @name getOtpConfig
+GET {{host}}/admin/otp-config
+Authorization: Bearer {{adminToken}}
+
+### Назначение: изменение длины OTP-кода и времени его жизни администратором.
+# @name updateOtpConfigByAdmin
+PUT {{host}}/admin/otp-config
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "codeLength": 6,
+  "ttlSeconds": 60
+}
+
+### Назначение: проверка запрета на изменение OTP-конфигурации обычным пользователем.
+# @name updateOtpConfigByUserShouldFail
+PUT {{host}}/admin/otp-config
+Content-Type: application/json
+Authorization: Bearer {{userToken}}
+
+{
+  "codeLength": 6,
+  "ttlSeconds": 60
+}
+
+### Назначение: получение списка всех обычных пользователей администратором.
+# @name listUsers
+GET {{host}}/admin/users
+Authorization: Bearer {{adminToken}}
+
+### Назначение: проверка запрета на доступ обычного пользователя к admin API.
+# @name forbiddenUserAdminAccess
+GET {{host}}/admin/users
+Authorization: Bearer {{userToken}}
+
+### =========================================================
+### 4. OTP через файл
+### =========================================================
+
+### Назначение: генерация OTP-кода с сохранением в файл.
+# @name generateOtpFile
+POST {{host}}/otp/generate
+Content-Type: application/json
+Authorization: Bearer {{userToken}}
+
+{
+  "operationKey": "payment-file-001",
+  "channel": "FILE",
+  "operationDescription": "Проверка OTP через файл"
+}
+
+### Назначение: валидация OTP-кода, полученного из файла.
+# @name validateFileOtp
+POST {{host}}/otp/validate
+Content-Type: application/json
+Authorization: Bearer {{userToken}}
+
+{
+  "operationKey": "payment-file-001",
+  "code": "PASTE_FILE_CODE_HERE"
+}
+
+### =========================================================
+### 5. OTP через email
+### =========================================================
+
+### Назначение: генерация OTP-кода с отправкой на электронную почту пользователя.
+# @name generateOtpEmail
+POST {{host}}/otp/generate
+Content-Type: application/json
+Authorization: Bearer {{userToken}}
+
+{
+  "operationKey": "payment-email-001",
+  "channel": "EMAIL",
+  "operationDescription": "Проверка OTP через email"
+}
+
+### Назначение: валидация OTP-кода, полученного по электронной почте.
+# @name validateEmailOtp
+POST {{host}}/otp/validate
+Content-Type: application/json
+Authorization: Bearer {{userToken}}
+
+{
+  "operationKey": "payment-email-001",
+  "code": "PASTE_EMAIL_CODE_HERE"
+}
+
+### =========================================================
+### 6. OTP через SMS
+### =========================================================
+
+### Назначение: генерация OTP-кода с отправкой через SMPP/SMS-эмулятор.
+# @name generateOtpSms
+POST {{host}}/otp/generate
+Content-Type: application/json
+Authorization: Bearer {{userToken}}
+
+{
+  "operationKey": "payment-sms-001",
+  "channel": "SMS",
+  "operationDescription": "Проверка OTP через SMS"
+}
+
+### Назначение: валидация OTP-кода, полученного по SMS.
+# @name validateSmsOtp
+POST {{host}}/otp/validate
+Content-Type: application/json
+Authorization: Bearer {{userToken}}
+
+{
+  "operationKey": "payment-sms-001",
+  "code": "PASTE_SMS_CODE_HERE"
+}
+
+### =========================================================
+### 7. OTP через Telegram
+### =========================================================
+
+### Назначение: генерация OTP-кода с отправкой в Telegram пользователю.
+# @name generateOtpTelegram
+POST {{host}}/otp/generate
+Content-Type: application/json
+Authorization: Bearer {{userToken}}
+
+{
+  "operationKey": "payment-telegram-001",
+  "channel": "TELEGRAM",
+  "operationDescription": "Проверка OTP через Telegram"
+}
+
+### Назначение: валидация OTP-кода, полученного в Telegram.
+# @name validateTelegramOtp
+POST {{host}}/otp/validate
+Content-Type: application/json
+Authorization: Bearer {{userToken}}
+
+{
+  "operationKey": "payment-telegram-001",
+  "code": "PASTE_TELEGRAM_CODE_HERE"
+}
+
+### =========================================================
+### 8. Проверка просрочки OTP
+### =========================================================
+
+### Назначение: установка короткого времени жизни OTP-кода для проверки механизма просрочки.
+# @name updateOtpConfigShortTtl
+PUT {{host}}/admin/otp-config
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "codeLength": 6,
+  "ttlSeconds": 10
+}
+
+### Назначение: генерация OTP-кода для проверки перехода в статус EXPIRED.
+# @name generateExpiredOtpFile
+POST {{host}}/otp/generate
+Content-Type: application/json
+Authorization: Bearer {{userToken}}
+
+{
+  "operationKey": "payment-expired-001",
+  "channel": "FILE",
+  "operationDescription": "Проверка просрочки OTP"
+}
+
+### Назначение: валидация просроченного OTP-кода после истечения времени жизни.
+### Перед запуском подождать.
+# @name validateExpiredOtpFile
+POST {{host}}/otp/validate
+Content-Type: application/json
+Authorization: Bearer {{userToken}}
+
+{
+  "operationKey": "payment-expired-001",
+  "code": "PASTE_EXPIRED_CODE_HERE"
+}
+
+### =========================================================
+### 9. Удаление пользователя
+### =========================================================
+
+### Назначение: удаление пользователя администратором вместе со связанными OTP-кодами.
+### Выполнять в самом конце тестирования.
+### Перед запуском уточнить id пользователя через GET /admin/users.
+# @name deleteUser
+DELETE {{host}}/admin/users/USER_ID_HERE
+Authorization: Bearer {{adminToken}}
